@@ -15,7 +15,6 @@ func TestFANZA_GetMovieInfoByID(t *testing.T) {
 		"okax841",
 		"zuko00122",
 		"118chn064",
-		"h_346rebd655tk2",
 		"midv00047",
 		"403jdxa57676",
 		"pkpd00170",
@@ -33,6 +32,9 @@ func TestFANZA_GetMovieInfoByID(t *testing.T) {
 
 func TestFANZA_GetMovieInfoByURL(t *testing.T) {
 	testkit.Test(t, New, []string{
+		"https://www.dmm.co.jp/digital/videoa/-/detail/=/cid=1start00190/",
+		"https://www.dmm.co.jp/digital/videoa/-/detail/=/cid=ebwh00164/",
+		"https://www.dmm.co.jp/digital/videoa/-/detail/=/cid=fpre00106/",
 		"https://www.dmm.co.jp/mono/dvd/-/detail/=/cid=41hodv21810/",
 		"https://www.dmm.co.jp/mono/dvd/-/detail/=/cid=h_346rebd655/",
 		"https://www.dmm.co.jp/digital/videoa/-/detail/=/cid=ipvr00231/",

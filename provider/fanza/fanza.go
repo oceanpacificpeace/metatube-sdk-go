@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/antchfx/htmlquery"
+	"github.com/docker/go-units"
 	"github.com/gocolly/colly/v2"
 	"golang.org/x/net/html"
 
@@ -292,10 +293,10 @@ func (fz *FANZA) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 	// Preview Video
 	c.OnXML(`//*[@id="detail-sample-movie"]/div/a`, func(e *colly.XMLElement) {
 		var videoPath string
-		if v := e.Attr("onclick"); v != "" { // digital
+		if dvu := e.Attr("data-video-url"); dvu != "" { // mono
+			videoPath = dvu
+		} else if v := e.Attr("onclick"); v != "" { // digital
 			videoPath = regexp.MustCompile(`/(.+)/`).FindString(v)
-		} else { // mono
-			videoPath = e.Attr("data-video-url")
 		}
 		d := c.Clone()
 		d.OnXML(`//iframe`, func(e *colly.XMLElement) {
@@ -364,6 +365,41 @@ func (fz *FANZA) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 			// try to convert thumb url to cover url.
 			info.CoverURL = PreviewSrc(info.ThumbURL)
 		}
+	})
+
+	// Find big thumb/cover images (awsimgsrc.dmm.co.jp)
+	c.OnScraped(func(_ *colly.Response) {
+		start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+		if time.Time(info.ReleaseDate).Before(start) {
+			return // ignore movies released before this date.
+		}
+		if !strings.Contains(info.Homepage, "/digital/videoa") {
+			return // ignore non-digital/videoa typed movies.
+		}
+		d := c.Clone()
+		d.Async = true
+		d.ParseHTTPErrorResponse = false
+		d.OnResponseHeaders(func(r *colly.Response) {
+			if r.Headers.Get("Content-Type") != "image/jpeg" {
+				return // ignore non-image/jpeg contents.
+			}
+			length, _ := strconv.Atoi(r.Headers.Get("Content-Length"))
+			switch {
+			case strings.HasSuffix(info.ThumbURL, path.Base(r.Request.URL.Path)) && length > 100*units.KiB:
+				info.BigThumbURL = r.Request.URL.String()
+			case strings.HasSuffix(info.CoverURL, path.Base(r.Request.URL.Path)) && length > 500*units.KiB:
+				info.BigCoverURL = r.Request.URL.String()
+			}
+			// abort to prevent image content from being downloaded.
+			r.Request.Abort()
+		})
+		d.Visit(strings.ReplaceAll(info.ThumbURL,
+			"https://pics.dmm.co.jp/",
+			"https://awsimgsrc.dmm.co.jp/pics_dig/"))
+		d.Visit(strings.ReplaceAll(info.CoverURL,
+			"https://pics.dmm.co.jp/",
+			"https://awsimgsrc.dmm.co.jp/pics_dig/"))
+		d.Wait()
 	})
 
 	// Final (big thumb image)
